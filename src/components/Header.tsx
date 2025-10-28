@@ -1,6 +1,24 @@
 import { Link } from 'react-router-dom'
+import { LogOut, User } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
+import { authApi } from '@/services/api'
+import toast from 'react-hot-toast'
 
 export default function Header() {
+  const { user, isAuthenticated, clearAuth } = useAuthStore()
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout()
+      clearAuth()
+      toast.success('Logged out successfully')
+    } catch (error) {
+      console.error('Logout error:', error)
+      clearAuth() // Clear local state even if API call fails
+      toast.success('Logged out successfully')
+    }
+  }
+
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,14 +38,40 @@ export default function Header() {
             <Link to="/favorites" className="text-gray-600 hover:text-gray-900 font-medium">Favorites</Link>
           </nav>
 
-          {/* Sign Up and Sign In Buttons */}
+          {/* Auth Section */}
           <div className="flex items-center space-x-3">
-            <Link to="/auth/signin" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-              Sign In
-            </Link>
-            <Link to="/auth/signup" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
-              Sign Up
-            </Link>
+            {isAuthenticated && user ? (
+              <>
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt={user.firstName} className="w-8 h-8 rounded-full" />
+                    ) : (
+                      <User className="w-4 h-4 text-gray-600" />
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">
+                    {user.firstName} {user.lastName}
+                  </span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/auth/signin" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                  Sign In
+                </Link>
+                <Link to="/auth/signup" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>

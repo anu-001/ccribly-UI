@@ -91,7 +91,38 @@ export interface User {
     lastName: string;
     email: string;
     avatar?: string;
-    verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+    avatarUrl?: string;
+    role: string;
+    verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'UNVERIFIED';
+    createdAt?: string;
+}
+
+// Authentication types
+export interface SignUpData {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    role?: string;
+    phoneNumber?: string;
+    dateOfBirth?: string;
+    bio?: string;
+}
+
+export interface SignInData {
+    email: string;
+    password: string;
+}
+
+export interface AuthResponse {
+    statusCode: number;
+    message: string;
+    data: {
+        accessToken: string;
+        user: User;
+    };
+    timestamp: string;
+    requestId: string;
 }
 
 export interface SearchFilters {

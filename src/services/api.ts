@@ -1,9 +1,11 @@
+
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 import { ExploreResponse, SignUpData, SignInData, AuthResponse, User } from '@/types';
 
-const API_URL = 'http://localhost:1010/api/v1';
+// const API_URL = 'http://localhost:1010/api/v1';
+const API_URL = 'https://tomas-unprovided-enragedly.ngrok-free.dev';
 
 const api = axios.create({
     baseURL: API_URL,

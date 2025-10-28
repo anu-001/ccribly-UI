@@ -62,7 +62,7 @@ export default function Footer() {
 
         <div className="mt-8 pt-8 border-t border-gray-200">
           <p className="text-center text-gray-500 text-sm">
-            © 2024 Cribly. All rights reserved.
+            © 2025 Cribly. All rights reserved.
           </p>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Heart,
@@ -18,6 +19,7 @@ interface PropertyCardProps {
 }
 
 export default function PropertyListingCard({ property, onClick, isSelected = false }: PropertyCardProps) {
+  const navigate = useNavigate()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isFavorite, setIsFavorite] = useState(false)
 
@@ -45,7 +47,7 @@ export default function PropertyListingCard({ property, onClick, isSelected = fa
       className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer ${
         isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''
       }`}
-      onClick={onClick}
+      onClick={() => { onClick?.(); navigate(`/listings/${property.id}`) }}
     >
       {/* Image Carousel */}
       <div className="relative h-48 overflow-hidden rounded-t-xl group">

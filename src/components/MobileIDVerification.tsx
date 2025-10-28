@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Camera, Upload, CheckCircle, XCircle, AlertCircle, RefreshCw, Smartphone, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { api } from '@/services/api'
+import { api, authApi } from '@/services/api'
+import { useAuthStore } from '@/stores/authStore'
 
 interface VerificationStep {
   id: string
@@ -22,6 +23,7 @@ interface VerificationStatus {
 }
 
 export const MobileIDVerification: React.FC = () => {
+  const { setUser } = useAuthStore()
   const [currentStep, setCurrentStep] = useState(0)
   const [idImage, setIdImage] = useState<File | null>(null)
   const [selfieImage, setSelfieImage] = useState<File | null>(null)
@@ -166,19 +168,22 @@ export const MobileIDVerification: React.FC = () => {
     }
   }
 
-  const handleUpload = async (file: File, type: 'id' | 'selfie'): Promise<string> => {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('useCase', type === 'id' ? 'VERIFICATION_DOCUMENT' : 'AVATAR')
+         const handleUpload = async (file: File, type: 'id' | 'selfie'): Promise<string> => {
+           const formData = new FormData()
+           formData.append('file', file)
+           // NOTE: Backend expects useCase as QUERY param, not form field
+           const useCase = type === 'id' ? 'VERIFICATION_DOCUMENT' : 'AVATAR'
 
-    const response = await api.post('/uploads', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
+           const response = await api.post(`/uploads?useCase=${encodeURIComponent(useCase)}`, formData, {
+             headers: {
+               'Content-Type': 'multipart/form-data'
+             }
+           })
 
-    return response.data.data.url
-  }
+           // Backend wraps response as { statusCode, message, data }
+           const payload = response.data?.data ?? response.data
+           return payload.url
+         }
 
   const handleVerification = async () => {
     if (!idImage || !selfieImage) {
@@ -208,12 +213,34 @@ export const MobileIDVerification: React.FC = () => {
   const pollVerificationStatus = async () => {
     try {
       const response = await api.get('/verification/status')
-      setVerificationStatus(response.data)
-      
-      if (response.data.status === 'pending') {
+      const raw = response.data?.data ?? response.data
+      const statusMap: Record<string, 'unverified' | 'pending' | 'verified' | 'failed'> = {
+        UNVERIFIED: 'unverified',
+        PENDING: 'pending',
+        VERIFIED: 'verified',
+        FAILED: 'failed',
+      }
+      const normalized = statusMap[raw?.status] ?? 'unverified'
+
+      setVerificationStatus({
+        status: normalized,
+        lastAttemptAt: raw?.lastAttemptAt,
+        completedAt: raw?.completedAt,
+        failureReason: raw?.failureReason,
+        remainingAttempts: raw?.remainingAttempts ?? 0,
+      })
+
+      if (normalized === 'pending') {
         setTimeout(pollVerificationStatus, 3000)
       } else {
         setIsVerifying(false)
+        if (normalized === 'verified') {
+          try {
+            const user = await authApi.getMe()
+            setUser(user)
+          } catch (_) {}
+          setTimeout(()=>{ window.location.href = '/profile' }, 1000)
+        }
       }
     } catch (err) {
       console.error('Status polling error:', err)
@@ -255,7 +282,7 @@ export const MobileIDVerification: React.FC = () => {
       case 'pending':
         return 'Verification in progress...'
       default:
-        return 'Verification status unknown'
+        return 'Awaiting verification. Please upload your ID and selfie to begin.'
     }
   }
 
@@ -373,7 +400,7 @@ export const MobileIDVerification: React.FC = () => {
 
       {/* Steps */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 overflow-x-auto no-scrollbar gap-4">
           {steps.map((step, index) => (
             <div key={step.id} className="flex flex-col items-center">
               <div
@@ -391,7 +418,7 @@ export const MobileIDVerification: React.FC = () => {
                   step.icon
                 )}
               </div>
-              <span className="text-xs mt-2 text-center max-w-20">{step.title}</span>
+              <span className="text-xs mt-2 text-center max-w-24 whitespace-nowrap">{step.title}</span>
             </div>
           ))}
         </div>
@@ -444,6 +471,25 @@ export const MobileIDVerification: React.FC = () => {
                   <Upload className="w-5 h-5 mr-2" />
                   Upload from Gallery
                 </Button>
+                {/* Guidance */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+                    <div className="font-semibold mb-1">ID capture tips</div>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Place ID flat, avoid glare and shadows</li>
+                      <li>Capture the entire document (all corners visible)</li>
+                      <li>Ensure text is readable and not blurry</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-800">
+                    <div className="font-semibold mb-1">What to avoid</div>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Cropped images or screenshots</li>
+                      <li>Reflections on holograms</li>
+                      <li>Obstructed or covered information</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -506,6 +552,25 @@ export const MobileIDVerification: React.FC = () => {
                   <Upload className="w-5 h-5 mr-2" />
                   Upload from Gallery
                 </Button>
+                {/* Guidance */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+                    <div className="font-semibold mb-1">Selfie tips</div>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Frame your full face (forehead to chin)</li>
+                      <li>Good lighting, avoid backlight</li>
+                      <li>Look straight at the camera, neutral expression</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-800">
+                    <div className="font-semibold mb-1">What to avoid</div>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Hats, sunglasses, or masks</li>
+                      <li>Multiple faces in frame</li>
+                      <li>Motion blur—hold still</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             )}
 

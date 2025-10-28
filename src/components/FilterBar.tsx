@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { SlidersHorizontal, ChevronDown } from 'lucide-react'
 
 interface FilterButtonProps {
@@ -12,7 +13,7 @@ function FilterButton({ label, value, isActive = false, onClick }: FilterButtonP
   return (
     <button
       onClick={() => onClick(value)}
-      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+      className={`px-3 py-1.5 rounded-md text-sm font-normal transition-colors ${
         isActive 
           ? 'bg-blue-600 text-white' 
           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -29,6 +30,8 @@ interface FilterBarProps {
 
 export default function FilterBar({ onFilterChange }: FilterBarProps) {
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({})
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const priceRanges = [
     { label: '$450k-$990k', value: '450000-990000' },
@@ -75,7 +78,10 @@ export default function FilterBar({ onFilterChange }: FilterBarProps) {
           onClick={(value) => handleFilterClick('rooms', value)}
         />
       ))}
-      <button className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors font-medium flex items-center space-x-2">
+      <button
+        onClick={() => navigate(`/filters?${searchParams.toString()}`)}
+        className="px-3 py-1.5 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors font-medium flex items-center space-x-2 text-sm"
+      >
         <SlidersHorizontal className="w-4 h-4" />
         <span>All filters</span>
       </button>

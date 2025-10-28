@@ -1,5 +1,6 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/stores/authStore';
 import { ExploreResponse, SignUpData, SignInData, AuthResponse, User } from '@/types';
 
 const API_URL = 'http://localhost:1010/api/v1';
@@ -29,7 +30,20 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        const status = error.response?.status;
         const message = error.response?.data?.message || error.message;
+        if (status === 401 || status === 403) {
+            // Clear auth on unauthorized so header hides name/logout immediately
+            try {
+                useAuthStore.getState().clearAuth();
+            } catch (_) { }
+            localStorage.removeItem('authToken');
+        }
+        if (status === 409 && /already verified/i.test(message)) {
+            toast.success('You\'re already verified');
+            setTimeout(() => { window.location.href = '/profile'; }, 800);
+            return Promise.reject(error);
+        }
         toast.error(message);
         return Promise.reject(error);
     }
@@ -54,9 +68,12 @@ export const authApi = {
         return response.data;
     },
 
-    getMe: async (): Promise<{ data: User }> => {
+    getMe: async (): Promise<User> => {
         const response = await api.get('/auth/me');
-        return response.data;
+        const d = response.data;
+        // Normalize common wrappers
+        const user = d?.data?.user || d?.data || d?.user || d;
+        return user as User;
     },
 
     refreshToken: async (): Promise<{ data: { accessToken: string } }> => {

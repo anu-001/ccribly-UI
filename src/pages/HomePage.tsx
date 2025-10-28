@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ChevronDown, MapPin } from 'lucide-react'
 import SearchBar from '@/components/SearchBar'
@@ -7,22 +8,28 @@ import PropertyListingCard from '@/components/PropertyListingCard'
 import RoommateCard from '@/components/RoommateCard'
 import MapComponent from '@/components/MapComponent'
 import { ExploreItem, Property, Roommate } from '@/types'
+import { haversineKm } from '@/utils'
 import { exploreApi } from '@/services/api'
 
 export default function HomePage() {
-  const [searchQuery, setSearchQuery] = useState('Apartments in Miami')
+  const [searchQuery, setSearchQuery] = useState('')
   const [showMap, setShowMap] = useState(true)
+  const [radiusKm, setRadiusKm] = useState<number | 'ALL'>('ALL')
+  const [userLoc, setUserLoc] = useState<{lat:number,lng:number} | null>(null)
   const [selectedItem, setSelectedItem] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState('price')
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const [showRoommates, setShowRoommates] = useState(false)
   const [exploreData, setExploreData] = useState<ExploreItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   // Filter data based on type
   const properties = exploreData.filter(item => item.type === 'property').map(item => item.item as Property)
   const roommates = exploreData.filter(item => item.type === 'roommate').map(item => item.item as Roommate)
-  const allItems = exploreData
+  const allItems = showRoommates ? exploreData.filter(i=>i.type==='roommate') : exploreData
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,16 +46,40 @@ export default function HomePage() {
     }
 
     fetchData()
+    // request geolocation (non-blocking)
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => setUserLoc(null),
+        { enableHighAccuracy: true, timeout: 5000 }
+      )
+    }
   }, [])
 
   const handleSearch = (query: string) => {
     setSearchQuery(query)
-    // Implement search logic here
   }
 
   const handleFilterChange = (newFilters: Record<string, string>) => {
     setFilters(newFilters)
-    // Implement filter logic here
+    // sync to URL so list recomputes immediately
+    const params = new URLSearchParams(searchParams)
+    // map known keys for quick chips
+    if (newFilters.price) {
+      const [min,max] = newFilters.price.split('-')
+      params.set('minPrice', min)
+      params.set('maxPrice', max)
+    } else {
+      params.delete('minPrice'); params.delete('maxPrice')
+    }
+    if (newFilters.rooms) {
+      // Use rooms value heuristically as beds
+      const v = newFilters.rooms.replace('+','')
+      params.set('beds', v)
+    } else {
+      params.delete('beds')
+    }
+    navigate(`/?${params.toString()}`)
   }
 
   if (loading) {
@@ -95,6 +126,71 @@ export default function HomePage() {
     )
   }
 
+  // optional client-side nearby filter
+  // Apply query param filters (basic client-side demo)
+  const itemsForDisplay = (() => {
+    let items = allItems
+    // text search on title/address/city for properties, and bio/name for roommates
+    const q = searchQuery.trim().toLowerCase()
+    if (q) {
+      items = items.filter((i) => {
+        if (i.type === 'property') {
+          const p:any = i.item
+          const hay = `${p.title} ${p.address} ${p.city}`.toLowerCase()
+          return hay.includes(q)
+        } else {
+          const r:any = i.item
+          const hay = `${r.firstName ?? ''} ${r.lastName ?? ''} ${r.bio ?? ''}`.toLowerCase()
+          return hay.includes(q)
+        }
+      })
+    }
+    const mode = searchParams.get('mode')
+    if (mode === 'roommates') {
+      items = items.filter(i => i.type === 'roommate')
+      const minB = Number(searchParams.get('minBudget') || 0)
+      const maxB = Number(searchParams.get('maxBudget') || Number.MAX_SAFE_INTEGER)
+      items = items.filter(i => {
+        const r:any = i.item
+        const b = Number(r?.budget || 0)
+        return b >= minB && b <= maxB
+      })
+      return items
+    }
+
+    // property filters (do NOT remove roommate items)
+    const minP = Number(searchParams.get('minPrice') || 0)
+    const maxP = Number(searchParams.get('maxPrice') || Number.MAX_SAFE_INTEGER)
+    const bedsQ = searchParams.get('beds')
+    const bathsQ = searchParams.get('baths')
+    const pets = searchParams.get('pets') // allowed | not_allowed
+    const furnished = searchParams.get('furnished') // yes | no
+    items = items.filter(i => {
+      if (i.type !== 'property') return true // keep roommate items
+      const p:any = i.item
+      const price = Number(p?.price || 0)
+      if (price < minP || price > maxP) return false
+      if (bedsQ && Number(p?.bedrooms || 0) < Number(bedsQ)) return false
+      if (bathsQ && Number(p?.bathrooms || 0) < Number(bathsQ)) return false
+      if (pets === 'allowed' && p?.petsAllowed === false) return false
+      if (pets === 'not_allowed' && p?.petsAllowed === true) return false
+      if (furnished === 'yes' && p?.furnished === false) return false
+      if (furnished === 'no' && p?.furnished === true) return false
+      return true
+    })
+
+    if (userLoc && radiusKm !== 'ALL') {
+      items = items.filter((it) => {
+        if (it.type !== 'property') return true // do not radius-filter roommates
+        const p = it.item as any
+        if (typeof p.latitude !== 'number' || typeof p.longitude !== 'number') return true
+        const d = haversineKm(userLoc.lat, userLoc.lng, p.latitude, p.longitude)
+        return d <= (radiusKm as number)
+      })
+    }
+    return items
+  })()
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Search and Filter Section */}
@@ -127,6 +223,23 @@ export default function HomePage() {
               </button>
             </div>
 
+            {/* Roommate Toggle */}
+            <div className="flex items-center space-x-2">
+              <span className="text-gray-600 font-medium">Find Roommate</span>
+              <button
+                onClick={() => setShowRoommates(v=>!v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  showRoommates ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    showRoommates ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
             {/* Sort By */}
             <div className="relative">
               <select
@@ -147,22 +260,43 @@ export default function HomePage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex space-x-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex flex-col lg:flex-row gap-6">
         {/* Left Panel - Listings */}
-        <div className={`flex-1 ${showMap ? 'w-2/3' : 'w-full'}`}>
+        <div className={`flex-1`}> 
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900">
-              {allItems.length} objects found
+              {itemsForDisplay.length} objects found
             </h2>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <span>Sort by price</span>
-              <ChevronDown className="w-4 h-4" />
+            <div className="flex items-center gap-3 text-sm text-gray-600">
+              {userLoc && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-blue-600" />
+                  <select
+                    value={radiusKm}
+                    onChange={(e)=>{
+                      const v = e.target.value
+                      setRadiusKm(v === 'ALL' ? 'ALL' : parseInt(v))
+                    }}
+                    className="border rounded-md px-2 py-1"
+                  >
+                    <option value={'ALL'}>All listings</option>
+                    <option value={5}>Within 5 km</option>
+                    <option value={10}>Within 10 km</option>
+                    <option value={20}>Within 20 km</option>
+                    <option value={50}>Within 50 km</option>
+                  </select>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <span>Sort by</span>
+                <ChevronDown className="w-4 h-4" />
+              </div>
             </div>
           </div>
 
           {/* Property Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {allItems.map((item, index) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            {itemsForDisplay.map((item, index) => (
               <motion.div
                 key={`${item.type}-${item.item.id}`}
                 initial={{ opacity: 0, y: 20 }}
@@ -189,8 +323,8 @@ export default function HomePage() {
 
         {/* Right Panel - Map */}
         {showMap && (
-          <div className="w-1/3">
-            <div className="sticky top-24 h-[calc(100vh-8rem)] bg-gray-200 rounded-xl overflow-hidden">
+          <div className="lg:w-1/3 w-full">
+            <div className="sticky top-24 h-72 sm:h-96 lg:h-[calc(100vh-8rem)] bg-gray-200 rounded-xl overflow-hidden">
               <MapComponent
                 properties={properties}
                 selectedProperty={selectedItem}

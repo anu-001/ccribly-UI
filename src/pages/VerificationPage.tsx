@@ -1,11 +1,9 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { MobileIDVerification } from '@/components/MobileIDVerification'
-import PublicLayout from '@/layouts/PublicLayout'
 
 const VerificationPage: React.FC = () => {
   return (
-    <PublicLayout>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -16,7 +14,6 @@ const VerificationPage: React.FC = () => {
           <MobileIDVerification />
         </div>
       </motion.div>
-    </PublicLayout>
   )
 }
 

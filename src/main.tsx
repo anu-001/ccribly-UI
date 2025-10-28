@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import App from './App.tsx'
 import './index.css'
+// Leaflet CSS not imported to avoid dependency errors; static map fallback is used.
 
 // Create a client
 const queryClient = new QueryClient({

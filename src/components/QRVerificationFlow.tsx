@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { QrCode, Smartphone, CheckCircle, Clock, RefreshCw, ArrowRight, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { api } from '@/services/api'
+import { api, authApi } from '@/services/api'
+import { useAuthStore } from '@/stores/authStore'
 import toast from 'react-hot-toast'
 
 interface QRVerificationData {
@@ -18,6 +19,7 @@ interface VerificationStatus {
 }
 
 export const QRVerificationFlow: React.FC = () => {
+  const { setUser } = useAuthStore()
   console.log('QRVerificationFlow component rendered') // Debug log
 
   const [qrData, setQrData] = useState<QRVerificationData | null>(null)
@@ -106,9 +108,13 @@ export const QRVerificationFlow: React.FC = () => {
           if (statusPayload.status === 'verified') {
             toast.success('Identity verified successfully! Redirecting...')
             if (pollInterval) clearInterval(pollInterval)
+            try {
+              const user = await authApi.getMe()
+              setUser(user)
+            } catch (_) {}
             setTimeout(() => {
-              window.location.href = '/' // Redirect to homepage on success
-            }, 3000)
+              window.location.href = '/profile'
+            }, 1500)
           } else if (statusPayload.status === 'failed' || statusPayload.status === 'expired') {
             toast.error(statusPayload.message)
             if (pollInterval) clearInterval(pollInterval)
@@ -155,11 +161,11 @@ export const QRVerificationFlow: React.FC = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-xl text-center">
-      <h2 className="text-3xl font-bold text-gray-900 mb-6">
+    <div className="max-w-3xl mx-auto p-4 sm:p-6 bg-white rounded-xl shadow-xl text-center">
+      <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-6">
         Verify Your Identity
       </h2>
-      <p className="text-gray-600 mb-8">
+      <p className="text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">
         Scan the QR code below with your mobile phone to complete identity verification.
       </p>
 
@@ -193,11 +199,11 @@ export const QRVerificationFlow: React.FC = () => {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6"
+          className="space-y-4 sm:space-y-6"
         >
-          <div className="relative w-64 h-64 mx-auto bg-gray-100 p-4 rounded-lg shadow-inner flex items-center justify-center">
+          <div className="relative w-56 h-56 sm:w-64 sm:h-64 mx-auto bg-gray-100 p-3 sm:p-4 rounded-lg shadow-inner flex items-center justify-center">
             {qrData.qrCode ? (
-              <img src={qrData.qrCode} alt="QR Code" className="w-full h-full object-contain" />
+              <img src={qrData.qrCode} alt="QR Code" className="w-full h-full object-contain rounded-md" />
             ) : (
               <div className="text-gray-500">Loading QR Code...</div>
             )}
@@ -208,14 +214,14 @@ export const QRVerificationFlow: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center justify-center space-x-2 text-gray-600">
+          <div className="flex items-center justify-center space-x-2 text-gray-600 text-sm sm:text-base">
             <Clock className="w-5 h-5" />
             <span>Expires in: {formatTime(timeLeft)}</span>
           </div>
 
-          <div className="text-center space-y-4">
+          <div className="text-center space-y-3 sm:space-y-4">
             {getStatusIcon()}
-            <p className={`text-lg font-medium ${
+            <p className={`text-base sm:text-lg font-medium ${
               verificationStatus.status === 'verified' ? 'text-green-600' :
               (verificationStatus.status === 'failed' || verificationStatus.status === 'expired') ? 'text-red-600' : 'text-blue-600'
             }`}>
@@ -226,7 +232,7 @@ export const QRVerificationFlow: React.FC = () => {
           {(verificationStatus.status === 'failed' || verificationStatus.status === 'expired') && (
             <Button
               onClick={generateQRCode}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md font-medium flex items-center space-x-2 mx-auto"
+              className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto px-6 sm:px-8 py-3 rounded-md font-medium flex items-center justify-center space-x-2 mx-auto"
             >
               <RefreshCw className="w-5 h-5" />
               <span>Generate New QR Code</span>
@@ -236,7 +242,7 @@ export const QRVerificationFlow: React.FC = () => {
           {verificationStatus.status === 'verified' && (
             <Button
               onClick={() => window.location.href = '/'}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium flex items-center space-x-2 mx-auto"
+              className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto px-6 py-3 rounded-md font-medium flex items-center justify-center space-x-2 mx-auto"
             >
               <span>Go to Homepage</span>
               <ArrowRight className="w-5 h-5" />
@@ -246,7 +252,7 @@ export const QRVerificationFlow: React.FC = () => {
       )}
 
       {isGenerating && (
-        <div className="flex items-center justify-center space-x-2 text-blue-600 font-medium">
+        <div className="flex items-center justify-center space-x-2 text-blue-600 font-medium text-sm sm:text-base">
           <RefreshCw className="w-5 h-5 animate-spin" />
           <span>Generating QR Code...</span>
         </div>

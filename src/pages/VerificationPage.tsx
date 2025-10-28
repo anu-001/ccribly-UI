@@ -1,6 +1,6 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { IDVerification } from '@/components/IDVerification'
+import { MobileIDVerification } from '@/components/MobileIDVerification'
 import PublicLayout from '@/layouts/PublicLayout'
 
 const VerificationPage: React.FC = () => {
@@ -13,7 +13,7 @@ const VerificationPage: React.FC = () => {
         className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12"
       >
         <div className="container mx-auto px-4">
-          <IDVerification />
+          <MobileIDVerification />
         </div>
       </motion.div>
     </PublicLayout>

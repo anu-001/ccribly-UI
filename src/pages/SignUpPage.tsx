@@ -103,7 +103,17 @@ const SignUpPage: React.FC = () => {
 
       setAuth(response.data.user, response.data.accessToken);
       toast.success('Account created successfully!');
-      navigate('/');
+      
+      // Detect if user is on mobile device
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // Redirect mobile users to mobile verification
+        navigate('/verification/mobile');
+      } else {
+        // Redirect desktop users to QR verification
+        navigate('/verification/qr');
+      }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Failed to create account';
       setError(errorMessage);

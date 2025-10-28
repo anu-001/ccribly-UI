@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Camera, Upload, CheckCircle, XCircle, AlertCircle, RefreshCw, Smartphone, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { useAuth } from '@/hooks'
 import { api } from '@/services/api'
 
 interface VerificationStep {
@@ -23,17 +22,14 @@ interface VerificationStatus {
 }
 
 export const MobileIDVerification: React.FC = () => {
-  const { user } = useAuth()
   const [currentStep, setCurrentStep] = useState(0)
   const [idImage, setIdImage] = useState<File | null>(null)
   const [selfieImage, setSelfieImage] = useState<File | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [cameraMode, setCameraMode] = useState<'id' | 'selfie' | null>(null)
-  const [capturedImage, setCapturedImage] = useState<string | null>(null)
   
   const idFileRef = useRef<HTMLInputElement>(null)
   const selfieFileRef = useRef<HTMLInputElement>(null)
@@ -107,7 +103,6 @@ export const MobileIDVerification: React.FC = () => {
       streamRef.current = null
     }
     setCameraMode(null)
-    setCapturedImage(null)
   }
 
   const capturePhoto = () => {
@@ -137,9 +132,8 @@ export const MobileIDVerification: React.FC = () => {
       // Validate and set image
       handleFileSelect(file, cameraMode!)
       
-      // Stop camera and show captured image
+      // Stop camera
       stopCamera()
-      setCapturedImage(canvas.toDataURL('image/jpeg'))
       
       // Auto-advance to next step
       if (cameraMode === 'id') {
@@ -233,7 +227,6 @@ export const MobileIDVerification: React.FC = () => {
     setCurrentStep(0)
     setVerificationStatus(null)
     setError(null)
-    setCapturedImage(null)
   }
 
   const getStatusIcon = () => {
